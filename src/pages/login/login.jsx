@@ -1,8 +1,11 @@
 import React from "react";
 import './login.less';
-import logo from './imags/logo.png';
-import { Form, Icon, Input, Button } from 'antd';
+import logo from '../../assets/images/logo.png';
+import {Form, Icon, Input, Button, message} from 'antd';
 import {reqLogin} from "../../api";
+import memoryUtils from "../../utils/memoryUtils";
+import storageUtils from "../../utils/storageUtils";
+import {Redirect} from "react-router-dom";
 
 /*
   登陆的路由组件
@@ -12,22 +15,38 @@ class Login extends React.Component{
         //得到form对象，得到表单传来的值
         event.preventDefault();
         //对所有需要验证对表单进行验证
-        this.props.form.validateFields((err, values) => {
+        this.props.form.validateFields(async (err, values) => {
             if (!err) {
                 const {username, password} = values;
                 console.log('提交ajax登陆请求', values);
-                reqLogin(username, password).then(response => {
-                    console.log('成功了', response.data)
-                }).catch(error => {
-                    console.log('失败了',error)
-                })
+                const response = await reqLogin(username, password);
+                console.log('请求登陆成功了', response.data);
+                const result = response.data;
+                if (result.status === 0) {
+                    message.success('登陆成功');
+                    //保存当前到user到内存中
+                    memoryUtils.user = result.data;
+                    storageUtils.saveUser(result.data);//保存到local
+                    //跳转到管理页面
+                    this.props.history.replace('/');//不可以回退
+                    // this.props.history.push('/');//可以回退
+
+                } else {
+                    message.error(result.msg);
+                }
             } else {
-                console.log('失败');
+                console.log('验证失败');
             }
         });
     };
 
     render() {
+        //判断用户是否已经登陆
+        const user = memoryUtils.user;
+        if (user && user._id) {
+            return <Redirect to="/"/>
+        }
+
         const { getFieldDecorator } = this.props.form;
         return (
             <div className="login">
@@ -91,3 +110,11 @@ class Login extends React.Component{
  */
 const WrapLogin = Form.create()(Login)
 export default WrapLogin
+
+/* 使用Promise的then()来获取
+    reqLogin(username, password).then(response => {
+        console.log('成功了', response.data)
+    }).catch(error => {
+        console.log('失败了',error)
+    })
+ */
